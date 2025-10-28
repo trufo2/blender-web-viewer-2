@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "blendxweb2"
-version = "0.1.0"
+version = "0.2.0"
 name = "blendXweb2"
 tagline = "Preview and export Blender scenes to interactive web viewers"
 maintainer = "trufo2 <trufo2@gmail.com>"
