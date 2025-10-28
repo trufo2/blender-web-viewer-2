@@ -10,8 +10,13 @@ const state = {
     modelMaterials: null,
     modelFilesize: null,
     animationControls: null,
+    animationSliderPanel: null,
     animationSlider: null,
     animationTime: null,
+    animationSliderGlobal: null,
+    animationTimeGlobal: null,
+    globalTimeline: null,
+    toggleTimeline: null,
     shadingToggle: null,
     shadingStatus: null,
     shadingText: null,
@@ -40,6 +45,7 @@ const state = {
   mixer: null,
   clock: null,
   animationActions: [],
+  referenceCameraPose: null,
   animationDuration: 0,
   isPlaying: false,
   normalsHelper: null,
@@ -123,5 +129,11 @@ export const setModelRoot = (root) => {
 };
 
 export const getModelRoot = () => state.modelRoot;
+
+export const setReferenceCameraPose = (pose) => {
+  state.referenceCameraPose = pose;
+};
+
+export const getReferenceCameraPose = () => state.referenceCameraPose;
 
 export default state;

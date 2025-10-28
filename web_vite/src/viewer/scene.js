@@ -18,6 +18,7 @@ import {
   getClock,
   setModelRoot,
   setIsPlaying,
+  setReferenceCameraPose,
 } from './state.js';
 
 import {
@@ -35,6 +36,36 @@ import {
 import { initializeAnimations } from './actions.js';
 import { registerControlHandlers } from './controls.js';
 import { tickAnimations } from './animation.js';
+
+const extractReferenceCameraPose = (root) => {
+  let pose = null;
+  root.traverse((child) => {
+    if (pose || !child.isCamera) {
+      return;
+    }
+    child.updateMatrixWorld(true);
+
+    const position = new THREE.Vector3();
+    child.getWorldPosition(position);
+
+    const quaternion = new THREE.Quaternion();
+    child.getWorldQuaternion(quaternion);
+
+    const fov = child.isPerspectiveCamera ? child.fov : null;
+    const target = new THREE.Vector3(0, 0, -1)
+      .applyQuaternion(quaternion)
+      .add(position);
+
+    pose = {
+      position: position.toArray(),
+      quaternion: quaternion.toArray(),
+      target: target.toArray(),
+      fov,
+    };
+  });
+
+  return pose;
+};
 
 const createRenderer = (container) => {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -229,6 +260,8 @@ const loadModel = async () => {
     console.warn('Draco loader setup failed, continuing without Draco support:', error);
   }
 
+  setReferenceCameraPose(null);
+
   try {
     const response = await fetch('scene.glb');
     if (!response.ok) {
@@ -264,6 +297,12 @@ const loadModel = async () => {
         scene.add(gltf.scene);
         setModelRoot(gltf.scene);
         updateModelInfo(gltf);
+
+        const refPose = extractReferenceCameraPose(gltf.scene);
+        if (refPose) {
+          setReferenceCameraPose(refPose);
+        }
+
         centerCameraOnModel(gltf.scene);
 
         const { animationControls, animationSlider } = getDomRefs();

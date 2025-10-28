@@ -16,13 +16,27 @@ import {
   setMixer,
   setNormalsHelper,
   getNormalsHelper,
+  getReferenceCameraPose,
 } from './state.js';
 import {
   updateAnimationTimeDisplay,
+  setAnimationSliderValue,
   updateShadingStatus,
   updateNormalsStatus,
   updateLightingDisplay,
 } from './ui.js';
+
+const setAnimationLoopMode = (actions, mode) => {
+  actions.forEach((action) => {
+    if (mode === 'once') {
+      action.setLoop(THREE.LoopOnce, 0);
+      action.clampWhenFinished = true;
+    } else {
+      action.setLoop(THREE.LoopRepeat, Infinity);
+      action.clampWhenFinished = false;
+    }
+  });
+};
 
 export const applyShadingMode = (mode) => {
   const scene = getScene();
@@ -119,6 +133,30 @@ export const resetCameraToScene = () => {
   const controls = getControls();
   if (!camera) return;
 
+  const referencePose = getReferenceCameraPose();
+
+  if (referencePose) {
+    const position = new THREE.Vector3().fromArray(referencePose.position);
+    const quaternion = new THREE.Quaternion().fromArray(referencePose.quaternion);
+    const target = new THREE.Vector3().fromArray(referencePose.target);
+
+    camera.position.copy(position);
+    camera.quaternion.copy(quaternion);
+
+    if (referencePose.fov && camera.isPerspectiveCamera) {
+      camera.fov = referencePose.fov;
+      camera.updateProjectionMatrix();
+    }
+
+    if (controls) {
+      controls.target.copy(target);
+      controls.update();
+    } else {
+      camera.lookAt(target);
+    }
+    return;
+  }
+
   const boundingBox = new THREE.Box3().setFromObject(scene);
   const center = new THREE.Vector3();
   boundingBox.getCenter(center);
@@ -160,6 +198,8 @@ export const playAnimations = () => {
   const actions = getAnimationActions();
   if (!mixer || !actions.length) return;
 
+  setAnimationLoopMode(actions, 'repeat');
+
   actions.forEach((action) => {
     action.paused = false;
     action.play();
@@ -170,6 +210,8 @@ export const playAnimations = () => {
 export const pauseAnimations = () => {
   const actions = getAnimationActions();
   if (!actions.length) return;
+
+  setAnimationLoopMode(actions, 'once');
 
   actions.forEach((action) => {
     action.paused = true;
@@ -182,6 +224,8 @@ export const stopAnimations = () => {
   const actions = getAnimationActions();
   if (!mixer || !actions.length) return;
 
+  setAnimationLoopMode(actions, 'once');
+
   actions.forEach((action) => action.stop());
   mixer.setTime(0);
   setIsPlaying(false);
@@ -193,13 +237,38 @@ export const seekAnimation = (time) => {
   const actions = getAnimationActions();
   if (!mixer || !actions.length) return;
 
+  const duration = getAnimationDuration();
+  const clampedTime = Math.max(0, duration > 0 ? Math.min(time, duration) : time);
+  const wasPlaying = isPlaying();
+
+  setAnimationLoopMode(actions, 'once');
+
   actions.forEach((action) => {
-    action.paused = true;
+    action.paused = false;
     action.play();
+    action.time = clampedTime;
   });
 
-  mixer.setTime(time);
-  updateAnimationTimeDisplay(time, getAnimationDuration());
+  mixer.setTime(clampedTime);
+  mixer.update(0.000001);
+
+  setAnimationSliderValue(clampedTime);
+  updateAnimationTimeDisplay(clampedTime, duration);
+
+  if (!wasPlaying) {
+    actions.forEach((action) => {
+      action.paused = true;
+      action.time = clampedTime;
+    });
+  } else {
+    setAnimationLoopMode(actions, 'repeat');
+    actions.forEach((action) => {
+      action.paused = false;
+      action.play();
+    });
+  }
+
+  setIsPlaying(wasPlaying);
 };
 
 export const initializeAnimations = (gltf, duration, mixer) => {
@@ -207,13 +276,18 @@ export const initializeAnimations = (gltf, duration, mixer) => {
 
   const actions = gltf.animations.map((clip) => mixer.clipAction(clip));
   setAnimationActions(actions);
+  setAnimationLoopMode(actions, 'repeat');
 
-  const { animationSlider } = getDomRefs();
+  const { animationSlider, animationSliderGlobal } = getDomRefs();
   if (animationSlider) {
     animationSlider.max = duration;
   }
+  if (animationSliderGlobal) {
+    animationSliderGlobal.max = duration;
+  }
 
   setAnimationDuration(duration);
+  setAnimationSliderValue(0);
   updateAnimationTimeDisplay(0, duration);
 
   actions[0].play();

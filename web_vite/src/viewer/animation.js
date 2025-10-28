@@ -2,9 +2,20 @@ import {
   getMixer,
   isPlaying,
   getAnimationDuration,
-  getDomRefs,
+  setIsPlaying,
 } from './state.js';
-import { updateAnimationTimeDisplay } from './ui.js';
+import { updateAnimationTimeDisplay, setAnimationSliderValue } from './ui.js';
+
+const clampTime = (time, duration) => {
+  const epsilon = 1e-4;
+  if (time >= duration - epsilon) {
+    return duration;
+  }
+  if (time < 0) {
+    return 0;
+  }
+  return time;
+};
 
 export const tickAnimations = (deltaTime) => {
   const mixer = getMixer();
@@ -19,11 +30,17 @@ export const tickAnimations = (deltaTime) => {
 
   mixer.update(deltaTime);
 
-  const time = mixer.time % duration;
-  const { animationSlider } = getDomRefs();
-  if (animationSlider) {
-    animationSlider.value = time;
+  const rawTime = mixer.time;
+  const clampedTime = clampTime(rawTime, duration);
+
+  if (clampedTime >= duration) {
+    mixer.setTime(duration);
+    setIsPlaying(false);
+  } else if (clampedTime !== rawTime) {
+    mixer.setTime(clampedTime);
   }
 
-  updateAnimationTimeDisplay(time, duration);
+  setAnimationSliderValue(clampedTime);
+
+  updateAnimationTimeDisplay(clampedTime, duration);
 };

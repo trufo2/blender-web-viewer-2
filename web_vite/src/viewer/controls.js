@@ -34,7 +34,11 @@ export const registerControlHandlers = ({ hasAnimations }) => {
     pauseButton,
     stopButton,
     animationSlider,
+    animationSliderGlobal,
+    animationSliderPanel,
     animationControls,
+    toggleTimeline,
+    globalTimeline,
     toggleControls,
     controlsPanel,
   } = getDomRefs();
@@ -134,6 +138,55 @@ export const registerControlHandlers = ({ hasAnimations }) => {
     animationSlider.addEventListener('input', (event) => {
       const time = parseFloat(event.target.value);
       seekAnimation(time);
+    });
+  }
+
+  if (animationSliderGlobal) {
+    animationSliderGlobal.addEventListener('input', (event) => {
+      const time = parseFloat(event.target.value);
+      seekAnimation(time);
+    });
+  }
+
+  if (
+    toggleTimeline &&
+    animationSlider &&
+    animationSliderGlobal &&
+    animationSliderPanel &&
+    globalTimeline
+  ) {
+    const iconSpan = toggleTimeline.querySelector('.material-icons-round');
+
+    const setVisibility = (showGlobal) => {
+      if (showGlobal) {
+        globalTimeline.classList.remove('is-hidden');
+        globalTimeline.setAttribute('aria-hidden', 'false');
+        animationSliderPanel.classList.add('is-hidden');
+        animationSliderPanel.setAttribute('aria-hidden', 'true');
+        animationSliderGlobal.value = animationSlider.value;
+        animationSliderGlobal.focus({ preventScroll: true });
+        if (iconSpan) {
+          iconSpan.textContent = 'zoom_in_map';
+        }
+        toggleTimeline.setAttribute('aria-label', 'Collapse timeline controls');
+      } else {
+        globalTimeline.classList.add('is-hidden');
+        globalTimeline.setAttribute('aria-hidden', 'true');
+        animationSliderPanel.classList.remove('is-hidden');
+        animationSliderPanel.setAttribute('aria-hidden', 'false');
+        animationSlider.focus({ preventScroll: true });
+        if (iconSpan) {
+          iconSpan.textContent = 'zoom_out_map';
+        }
+        toggleTimeline.setAttribute('aria-label', 'Expand timeline to full width');
+      }
+    };
+
+    setVisibility(false);
+
+    toggleTimeline.addEventListener('click', () => {
+      const showGlobal = globalTimeline.classList.contains('is-hidden');
+      setVisibility(showGlobal);
     });
   }
 

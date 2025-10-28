@@ -2,8 +2,18 @@ import { setDomRefs, getDomRefs } from './state.js';
 
 const formatTime = (value) => {
   const minutes = Math.floor(value / 60);
-  const seconds = Math.floor(value % 60);
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  const seconds = value - minutes * 60;
+  return `${minutes}:${seconds.toFixed(1).padStart(4, '0')}`;
+};
+
+export const setAnimationSliderValue = (value) => {
+  const { animationSlider, animationSliderGlobal } = getDomRefs();
+  if (animationSlider) {
+    animationSlider.value = value;
+  }
+  if (animationSliderGlobal) {
+    animationSliderGlobal.value = value;
+  }
 };
 
 export const showLoadingOverlay = () => {
@@ -102,15 +112,23 @@ export const showErrorMessage = (message) => {
 };
 
 export const updateAnimationTimeDisplay = (time, duration) => {
-  const { animationTime } = getDomRefs();
+  const { animationTime, animationTimeGlobal } = getDomRefs();
   if (!animationTime) return;
 
   if (!duration || duration <= 0) {
-    animationTime.textContent = '0:00 / 0:00';
+    const zero = '0:00.0 / 0:00.0';
+    animationTime.textContent = zero;
+    if (animationTimeGlobal) {
+      animationTimeGlobal.textContent = zero;
+    }
     return;
   }
 
-  animationTime.textContent = `${formatTime(time)} / ${formatTime(duration)}`;
+  const formatted = `${formatTime(time)} / ${formatTime(duration)}`;
+  animationTime.textContent = formatted;
+  if (animationTimeGlobal) {
+    animationTimeGlobal.textContent = formatted;
+  }
 };
 
 export const updateShadingStatus = (mode) => {
@@ -149,8 +167,13 @@ export const initializeUI = () => {
     modelMaterials: document.getElementById('model-materials'),
     modelFilesize: document.getElementById('model-filesize'),
     animationControls: document.getElementById('animation-controls'),
+    animationSliderPanel: document.getElementById('animation-slider-panel'),
     animationSlider: document.getElementById('animation-slider'),
     animationTime: document.getElementById('animation-time'),
+    animationSliderGlobal: document.getElementById('animation-slider-global'),
+    animationTimeGlobal: document.getElementById('animation-time-global'),
+    globalTimeline: document.getElementById('global-timeline'),
+    toggleTimeline: document.getElementById('btn-toggle-timeline'),
     shadingToggle: document.getElementById('shading-toggle'),
     shadingStatus: document.getElementById('shading-status'),
     shadingText: document.getElementById('shading-text'),

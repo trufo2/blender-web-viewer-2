@@ -4,7 +4,7 @@
 bl_info = {
     "name": "blendXWeb2",
     "author": "trufo2",
-    "version": (1, 0),
+    "version": (0, 1),
     "blender": (4, 0, 0),
     "location": "View3D > Sidebar > blendXweb2",
     "description": "Preview and export Blender scenes to web browsers",
@@ -24,9 +24,13 @@ import socket
 import tempfile
 from pathlib import Path
 import subprocess
+from bpy.props import BoolProperty, StringProperty
 
 # Global server variable
 preview_server = None
+
+addon_keymaps = []
+PREVIEW_OPERATOR_IDNAME = "web_preview.preview_scene"
 
 ADDON_ROOT = Path(__file__).resolve().parent
 WEB_VITE_DIR = ADDON_ROOT / "web_vite"
@@ -68,6 +72,182 @@ def copy_vite_dist_contents(destination: Path):
             shutil.copy2(item, target)
 
 # ------------------------------------
+# Preferences
+# ------------------------------------
+
+def sanitize_shortcut_key(value: str) -> str:
+    if not value:
+        return "u"
+    char = value[0].lower()
+    return char if char.isalpha() else "u"
+
+
+def sanitize_server_port(value: str) -> str:
+    try:
+        port = int(value)
+    except (TypeError, ValueError):
+        return "3000"
+
+    port = max(1, min(65535, port))
+    return str(port)
+
+
+def _mark_preferences_dirty(self, context):
+    self.is_dirty = True
+
+
+def _update_shortcut_key(self, context):
+    sanitized = sanitize_shortcut_key(self.shortcut_key)
+    if sanitized != self.shortcut_key:
+        self.shortcut_key = sanitized
+    self.is_dirty = True
+
+
+def _update_server_port(self, context):
+    sanitized = sanitize_server_port(self.server_port)
+    if sanitized != self.server_port:
+        self.server_port = sanitized
+    self.is_dirty = True
+
+
+class BlendXWebAddonPreferences(bpy.types.AddonPreferences):
+    bl_idname = __name__
+
+    use_shift: BoolProperty(name="Shift", default=True, update=_mark_preferences_dirty)
+    use_alt: BoolProperty(name="Alt", default=False, update=_mark_preferences_dirty)
+    use_ctrl: BoolProperty(name="Ctrl", default=True, update=_mark_preferences_dirty)
+    is_dirty: BoolProperty(
+        name="Dirty Flag",
+        default=False,
+        options={'HIDDEN'},
+    )
+    server_port: StringProperty(
+        name="Server Port",
+        description="Port used by the local preview server",
+        default="3000",
+        maxlen=5,
+        update=_update_server_port,
+    )
+    shortcut_key: StringProperty(
+        name="Key",
+        description="Single letter used for the refresh shortcut",
+        default="u",
+        maxlen=1,
+        update=_update_shortcut_key,
+    )
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row(align=True)
+        row.alignment = 'LEFT'
+        row.scale_x = 0
+
+        row.label(text="refresh browser-files:    ")
+
+        controls_row = row.row(align=True)
+        controls_row.alignment = 'LEFT'
+        controls_row.scale_x = 0
+
+        controls_row.prop(self, "use_shift", text="shift")
+        controls_row.prop(self, "use_alt", text="alt")
+        controls_row.prop(self, "use_ctrl", text="ctrl")
+
+        key_row = controls_row.row(align=True)
+        key_row.scale_x = 0
+        key_row.ui_units_x = 2
+        key_row.prop(self, "shortcut_key", text="")
+
+        port_row = layout.row(align=True)
+        port_row.alignment = 'LEFT'
+        port_row.scale_x = 0
+        port_row.label(text="server-port:     ")
+        port_value_row = port_row.row(align=True)
+        port_value_row.scale_x = 0
+        port_value_row.ui_units_x = 4
+        port_value_row.prop(self, "server_port", text="")
+
+        save_col = layout.column(align=False)
+        save_col.alignment = 'LEFT'
+        save_col.enabled = self.is_dirty
+        save_col.operator("web_preview.save_preferences", text="save", icon='FILE_TICK')
+
+
+def get_addon_preferences():
+    addon = bpy.context.preferences.addons.get(__name__)
+    return addon.preferences if addon else None
+
+
+def build_preview_shortcut_label() -> str:
+    prefs = get_addon_preferences()
+    if not prefs:
+        return "shift+ctrl+u"
+
+    parts = []
+    if prefs.use_shift:
+        parts.append("shift")
+    if prefs.use_ctrl:
+        parts.append("ctrl")
+    if prefs.use_alt:
+        parts.append("alt")
+
+    parts.append(sanitize_shortcut_key(prefs.shortcut_key))
+    return "+".join(parts)
+
+
+def clear_preview_shortcut_keymap():
+    global addon_keymaps
+    if not addon_keymaps:
+        return
+
+    wm = bpy.context.window_manager if hasattr(bpy.context, "window_manager") else None
+    if not wm:
+        addon_keymaps.clear()
+        return
+
+    keyconfigs = wm.keyconfigs.addon
+    if not keyconfigs:
+        addon_keymaps.clear()
+        return
+
+    for keymap, keymap_item in addon_keymaps:
+        if keymap and keymap_item:
+            try:
+                keymap.keymap_items.remove(keymap_item)
+            except (ValueError, ReferenceError):
+                pass
+
+    addon_keymaps.clear()
+
+
+def register_preview_shortcut_keymap():
+    wm = bpy.context.window_manager if hasattr(bpy.context, "window_manager") else None
+    if not wm:
+        return
+
+    keyconfigs = wm.keyconfigs.addon
+    if not keyconfigs:
+        return
+
+    clear_preview_shortcut_keymap()
+
+    prefs = get_addon_preferences()
+    ctrl = prefs.use_ctrl if prefs else True
+    shift = prefs.use_shift if prefs else True
+    alt = prefs.use_alt if prefs else False
+    key_char = sanitize_shortcut_key(prefs.shortcut_key if prefs else "u").upper()
+
+    keymap = keyconfigs.keymaps.new(name="Window", space_type="EMPTY")
+    keymap_item = keymap.keymap_items.new(
+        PREVIEW_OPERATOR_IDNAME,
+        type=key_char,
+        value='PRESS',
+        ctrl=ctrl,
+        shift=shift,
+        alt=alt,
+    )
+    addon_keymaps.append((keymap, keymap_item))
+
+# ------------------------------------
 # Server Component
 # ------------------------------------
 
@@ -76,14 +256,15 @@ class WebPreviewServer:
     
     def __init__(self):
         self.server_process = None
-        self.port = 3000  # Fixed port to 3000
+        self.port = 3000
         self.temp_dir = None
         self.is_running = False
         
     def find_available_port(self):
         """Find an available port for the server"""
-        # Using fixed port 3000
-        self.port = 3000
+        prefs = get_addon_preferences()
+        port_str = sanitize_server_port(prefs.server_port if prefs else "3000")
+        self.port = int(port_str)
         return self.port
         
     def start_server(self):
@@ -163,7 +344,9 @@ def export_scene_to_gltf(context, filepath, export_settings):
         print(f"Trying minimal export parameters due to error: {e}")
         bpy.ops.export_scene.gltf(
             filepath=filepath,
-            export_format='GLB'  # Only use the format parameter
+            export_format='GLB',
+            export_cameras=True,
+            export_lights=True
         )
     except Exception as e:
         print(f"Error during export: {e}")
@@ -227,6 +410,32 @@ def package_for_export(context, export_path):
 # Operators
 # ------------------------------------
 
+class WEB_PREVIEW_OT_save_preferences(bpy.types.Operator):
+    bl_idname = "web_preview.save_preferences"
+    bl_label = "Save Preferences"
+
+    def execute(self, context):
+        prefs = get_addon_preferences()
+        if not prefs:
+            self.report({'ERROR'}, "Preferences not found")
+            return {'CANCELLED'}
+
+        if not prefs.is_dirty:
+            self.report({'INFO'}, "No preference changes to save")
+            return {'CANCELLED'}
+
+        try:
+            bpy.ops.wm.save_userpref()
+            prefs.is_dirty = False
+            register_preview_shortcut_keymap()
+            self.report({'INFO'}, "Preferences saved")
+        except Exception as error:
+            self.report({'ERROR'}, f"Failed to save preferences: {error}")
+            return {'CANCELLED'}
+
+        return {'FINISHED'}
+
+
 class WEB_PREVIEW_OT_preview_scene(bpy.types.Operator):
     """Preview the current scene in a web browser"""
     bl_idname = "web_preview.preview_scene"
@@ -235,25 +444,34 @@ class WEB_PREVIEW_OT_preview_scene(bpy.types.Operator):
     def execute(self, context):
         # Get the server instance
         global preview_server
-        
+
         # Initialize server if needed
         if preview_server is None:
             preview_server = WebPreviewServer()
-        
-        # Start the server if it's not already running
-        if not preview_server.is_running:
+
+        server_was_running = preview_server.is_running
+
+        if not server_was_running:
             preview_server.start_server()
-            
+            if not preview_server.is_running:
+                self.report({'ERROR'}, "Failed to start web preview server")
+                return {'CANCELLED'}
+        elif not preview_server.temp_dir:
+            self.report({'ERROR'}, "Preview server has no temporary directory")
+            return {'CANCELLED'}
+
         # Generate preview files
         try:
             generate_preview_files(context, preview_server.temp_dir)
         except Exception as e:
             self.report({'ERROR'}, f"Error generating preview: {str(e)}")
             return {'CANCELLED'}
-        
-        # Open the web browser
-        webbrowser.open(preview_server.get_url())
-        
+
+        if not server_was_running:
+            webbrowser.open(preview_server.get_url())
+        else:
+            self.report({'INFO'}, "Preview files updated. Refresh the browser tab to view changes.")
+
         return {'FINISHED'}
 
 class WEB_PREVIEW_OT_export_scene(bpy.types.Operator):
@@ -324,48 +542,41 @@ class WEB_PREVIEW_PT_panel(bpy.types.Panel):
     
     def draw(self, context):
         layout = self.layout
-        
+
         # Get server status
         global preview_server
-        
+
         # Preview section
         box = layout.box()
-        box.label(text="Preview")
-        
-        row = box.row()
-        row.operator("web_preview.preview_scene", icon='WORLD')
-        
-        # Server status
+        box.label(text="preview")
+
         is_running = preview_server and preview_server.is_running
-        box.label(text=f"Server: {'Running' if is_running else 'Offline'}")
-        
+        shortcut_display = build_preview_shortcut_label()
+        button_label = f"refresh ({shortcut_display})" if is_running else "preview in browser"
+
+        row = box.row()
+        row.operator("web_preview.preview_scene", text=button_label, icon='WORLD')
+
+        # Server status
+        status_text = "running" if is_running else "offline"
+        box.label(text=f"server: {status_text}")
+
         if is_running:
-            box.operator("web_preview.stop_server", icon='X')
-            box.label(text=f"Port: {preview_server.port}")
-        
+            box.operator("web_preview.stop_server", text="stop server", icon='X')
+            box.label(text=f"port: {preview_server.port}")
+
         # Export section
         box = layout.box()
-        box.label(text="Export")
-        box.operator("web_preview.export_scene", icon='EXPORT')
-
-# ------------------------------------
-# Addon Preferences
-# ------------------------------------
-
-class WebPreviewPreferences(bpy.types.AddonPreferences):
-    bl_idname = __name__
-    
-    def draw(self, context):
-        layout = self.layout
-        layout.label(text="Blender Web Preview/blendXweb2 Settings")
-        # TODO: Add global addon settings here
+        box.label(text="export")
+        box.operator("web_preview.export_scene", text="export scene to web", icon='EXPORT')
 
 # ------------------------------------
 # Registration
 # ------------------------------------
 
 classes = (
-    WebPreviewPreferences,
+    BlendXWebAddonPreferences,
+    WEB_PREVIEW_OT_save_preferences,
     WEB_PREVIEW_OT_preview_scene,
     WEB_PREVIEW_OT_export_scene,
     WEB_PREVIEW_OT_stop_server,
@@ -376,11 +587,15 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    register_preview_shortcut_keymap()
+
 def unregister():
     # Stop the server if it's running
     global preview_server
     if preview_server and preview_server.is_running:
         preview_server.stop_server()
+
+    clear_preview_shortcut_keymap()
     
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
