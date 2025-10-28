@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>blendXweb2-viewer</title>
+    <script type="module" crossorigin src="/assets/main-JYjmo6oQ.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/main-D-T8qEnW.css">
+  </head>
+  <body>
+    <div id="app-root" class="app">
+      <main id="viewer" class="viewer">
+        <div class="loading-overlay">
+          <div class="loading-spinner"></div>
+          <div id="loading-percentage" class="loading-text">Loading...</div>
+        </div>
+      </main>
+
+      <aside id="controls" class="controls is-open">
+        <div class="controls-inner">
+          <section class="section section-header">
+            <h2 id="scene-title" class="scene-title">Blender Scene</h2>
+            <p id="scene-stats" class="scene-stats">No scene info available</p>
+          </section>
+
+          <section class="section">
+            <h3 class="section-title">Model Details</h3>
+            <ul class="stat-list">
+              <li>
+                <span>Vertices</span>
+                <span id="model-vertices">-</span>
+              </li>
+              <li>
+                <span>Faces</span>
+                <span id="model-faces">-</span>
+              </li>
+              <li>
+                <span>Materials</span>
+                <span id="model-materials">-</span>
+              </li>
+              <li>
+                <span>File Size</span>
+                <span id="model-filesize">-</span>
+              </li>
+            </ul>
+          </section>
+
+          <section class="section">
+            <h3 class="section-title">Shading</h3>
+            <div class="stack">
+              <button
+                id="shading-toggle"
+                class="button button-block"
+                type="button"
+                data-mode="smooth"
+              >
+                <span id="shading-text">Smooth Shading</span>
+                <span id="shading-status" class="status-pill status-on">ON</span>
+              </button>
+
+              <button
+                id="show-normals"
+                class="button button-block"
+                type="button"
+              >
+                <span>Show Normals</span>
+                <span id="normals-status" class="status-pill status-off">OFF</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="section">
+            <h3 class="section-title">Lighting</h3>
+            <label class="slider-label" for="lighting-intensity">
+              Lighting Intensity
+            </label>
+            <input
+              id="lighting-intensity"
+              class="slider"
+              type="range"
+              min="0.1"
+              max="3"
+              step="0.1"
+              value="1"
+            />
+            <div id="lighting-value" class="slider-value">1.0</div>
+          </section>
+
+          <section class="section">
+            <h3 class="section-title">Camera</h3>
+            <div class="grid grid-three">
+              <button id="btn-top-view" class="button" type="button">Top</button>
+              <button id="btn-front-view" class="button" type="button">Front</button>
+              <button id="btn-side-view" class="button" type="button">Side</button>
+              <button id="btn-reset-camera" class="button" type="button">Rs</button>
+            </div>
+          </section>
+
+          <section class="section">
+            <h3 class="section-title">Display</h3>
+            <label class="checkbox-row">
+              <input
+                id="toggle-wireframe"
+                class="checkbox"
+                type="checkbox"
+              />
+              <span>Wireframe</span>
+            </label>
+            <label class="checkbox-row">
+              <input
+                id="toggle-grid"
+                class="checkbox"
+                type="checkbox"
+                checked
+              />
+              <span>Grid</span>
+            </label>
+            <label class="checkbox-row">
+              <input
+                id="toggle-lights"
+                class="checkbox"
+                type="checkbox"
+                checked
+              />
+              <span>Lights</span>
+            </label>
+          </section>
+
+          <section id="animation-controls" class="section">
+            <h3 class="section-title">Animation</h3>
+            <div class="grid grid-three">
+              <button id="btn-play" class="button" type="button">Play</button>
+              <button id="btn-pause" class="button" type="button">Pause</button>
+              <button id="btn-stop" class="button" type="button">Stop</button>
+            </div>
+            <input
+              id="animation-slider"
+              class="slider"
+              type="range"
+              min="0"
+              max="1000"
+              value="0"
+            />
+            <div id="animation-time" class="slider-value">0:00 / 0:00</div>
+          </section>
+        </div>
+      </aside>
+
+      <div id="toggle-controls" class="version-banner" role="button" aria-label="Toggle controls"></div>
+    </div>
+
+  </body>
+</html>
