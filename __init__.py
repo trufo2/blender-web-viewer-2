@@ -4,7 +4,7 @@
 bl_info = {
     "name": "blendXWeb2",
     "author": "trufo2",
-    "version": (0, 1),
+    "version": (0, 2),
     "blender": (4, 0, 0),
     "location": "View3D > Sidebar > blendXweb2",
     "description": "Preview and export Blender scenes to web browsers",
