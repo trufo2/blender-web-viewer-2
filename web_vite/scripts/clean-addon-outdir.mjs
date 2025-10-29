@@ -1,38 +1,35 @@
 import { rmSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolveAddonOutDir } from './addon-path.mjs';
+import { resolveAddonPaths } from './addon-path.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = resolve(__dirname, '..');
 
-const { path: outDir, isAddonPath } = resolveAddonOutDir(projectRoot);
+const { addonRoot, webPath, isAddonPath } = resolveAddonPaths(projectRoot);
 
 const log = (message) => {
   console.log(`[blendxweb2] ${message}`);
 };
 
 try {
-  if (existsSync(outDir)) {
-    rmSync(outDir, { recursive: true, force: true });
+  if (existsSync(webPath)) {
+    rmSync(webPath, { recursive: true, force: true });
     log(
-      `Removed existing build destination (${isAddonPath ? 'addon' : 'fallback'}): ${outDir}`,
+      `Removed existing web build (${isAddonPath ? 'addon' : 'custom'}): ${webPath}`,
     );
   } else {
     log(
-      `No existing build destination to remove (${isAddonPath ? 'addon' : 'fallback'}): ${outDir}`,
+      `No existing web build to remove (${isAddonPath ? 'addon' : 'custom'}): ${webPath}`,
     );
   }
 
-  mkdirSync(outDir, { recursive: true });
+  mkdirSync(webPath, { recursive: true });
   log(
-    `Prepared build destination (${isAddonPath ? 'addon' : 'fallback'}): ${outDir}`,
+    `Prepared web build destination (${isAddonPath ? 'addon' : 'custom'}): ${webPath}`,
   );
 } catch (error) {
-  console.warn(
-    `[blendxweb2] Failed to clean build destination (${outDir}):`,
-    error,
-  );
+  console.warn('[blendxweb2] Failed to clean web build destination:', error);
   process.exitCode = 0;
 }

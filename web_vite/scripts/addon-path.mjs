@@ -1,7 +1,5 @@
 import { resolve, isAbsolute } from 'node:path';
 
-const FALLBACK_RELATIVE = 'dist';
-
 const normalizeForComparison = (value) => resolve(value).replace(/\\/g, '/').toLowerCase();
 
 const isOutsideProjectRoot = (targetPath, projectRoot) => {
@@ -13,44 +11,33 @@ const isOutsideProjectRoot = (targetPath, projectRoot) => {
   return !normalizedTarget.startsWith(`${normalizedRoot}/`);
 };
 
-export const resolveAddonOutDir = (projectRoot) => {
-  const fallbackPath = resolve(projectRoot, FALLBACK_RELATIVE);
-
-  if (process.env.BLENDXWEB_USE_FALLBACK_DIST === 'true') {
-    return {
-      path: fallbackPath,
-      isAddonPath: false,
-    };
-  }
-
+export const resolveAddonPaths = (projectRoot) => {
   const customOutDir = process.env.BLENDXWEB_CUSTOM_OUTDIR;
+
   if (customOutDir) {
-    const resolvedCustom = isAbsolute(customOutDir)
+    const addonRoot = isAbsolute(customOutDir)
       ? customOutDir
       : resolve(projectRoot, customOutDir);
 
     return {
-      path: resolvedCustom,
-      isAddonPath: isOutsideProjectRoot(resolvedCustom, projectRoot),
+      addonRoot,
+      webPath: resolve(addonRoot, 'web'),
+      isAddonPath: isOutsideProjectRoot(addonRoot, projectRoot),
     };
   }
 
   if (process.platform !== 'win32') {
-    return {
-      path: fallbackPath,
-      isAddonPath: false,
-    };
+    throw new Error(
+      'blendxweb2 build requires BLENDXWEB_CUSTOM_OUTDIR on non-Windows platforms.',
+    );
   }
 
   const appData = process.env.APPDATA;
   if (!appData) {
-    return {
-      path: fallbackPath,
-      isAddonPath: false,
-    };
+    throw new Error('blendxweb2 build requires APPDATA to locate the Blender addon path.');
   }
 
-  const addonPath = resolve(
+  const addonRoot = resolve(
     appData,
     'Blender Foundation',
     'Blender',
@@ -58,11 +45,11 @@ export const resolveAddonOutDir = (projectRoot) => {
     'extensions',
     'user_default',
     'blendxweb2',
-    'web',
   );
 
   return {
-    path: addonPath,
+    addonRoot,
+    webPath: resolve(addonRoot, 'web'),
     isAddonPath: true,
   };
 };

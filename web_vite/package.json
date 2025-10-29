@@ -7,8 +7,7 @@
     "dev": "vite",
     "prebuild": "node scripts/clean-addon-outdir.mjs",
     "build": "vite build",
-    "build:dist": "cross-env BLENDXWEB_USE_FALLBACK_DIST=true vite build",
-    "preview": "vite preview"
+    "postbuild": "node scripts/copy-addon-files.mjs"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",

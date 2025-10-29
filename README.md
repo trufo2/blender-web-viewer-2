@@ -7,50 +7,23 @@ A fork of https://github.com/berloop/blender-web-viewer with support for  > thre
 
 ![BlendXWeb Preview](./image.png)
 
-
-
-## Installation and Usage Guide
-
 This addon allows you to preview your Blender scenes in a web browser and export them as standalone web packages.
+
 
 ## Prerequisites
 
 - Blender 4.0 or newer
 - Web browser with WebGL support (Chrome, Firefox, Edge, Safari)
-- Python 3.7+ (typically included with Blender)
+- For development: Python 3.7+ (ideally 3.11) & VS Code
 
 ## Installation
 
-### Method 1: Via Blender's Addon Installer
-
-1. Download the addon as a ZIP file (do not extract it)
+1. Download the addon from the release section (do not extract it)
 2. Open Blender and go to Edit > Preferences
 3. Select the "Add-ons" tab
-4. Click "Install..." button at the top right
-5. Navigate to and select the downloaded ZIP file
-6. Click "Install Add-on"
-7. Enable the addon by checking the box next to "3D View: blendXweb2"
+4. Click the down-pointing-arrow button at the top right and choose "Install Manually"
 
-### Method 2: Manual Installation
-
-1. Download and extract the addon files
-2. Locate your Blender addons directory:
-   - Windows: `%APPDATA%\Blender Foundation\Blender\4.0\scripts\addons`
-   - macOS: `~/Library/Application Support/Blender/4.0/scripts/addons`
-   - Linux: `~/.config/blender/4.0/scripts/addons`
-3. Copy the entire `blender_web_preview` folder to the addons directory
-4. Start Blender and go to Edit > Preferences > Add-ons
-5. Search for "BlendXWeb" and enable the addon
-
-## File Structure Setup
-
-After installation, you need to run the file structure setup script once to create the necessary directories:
-
-1. Open a terminal/command prompt
-2. Navigate to the addon directory
-3. Run `python setup_files.py`
-
-## Building the Web Viewer Assets
+## Development
 
 During development you can rebuild the web viewer directly into the installed addon directory (Windows Blender 5.0 default location):
 
@@ -64,76 +37,26 @@ The build process performs these steps automatically:
 
 - Cleans `C:\Users\Administrator\AppData\Roaming\Blender Foundation\Blender\5.0\extensions\user_default\blendxweb2\web`
 - Emits the latest Vite bundle into that directory so Blender serves the new assets immediately
+- Copies `__init__.py`, `blender_manifest.toml`, `image.png`, `README.md`, and the `server/` folder into the addon directory so Blender loads the full toolchain
 
-For portability or local preview without touching the addon, use the fallback script:
+> **Note:** On non-Windows systems set `BLENDXWEB_CUSTOM_OUTDIR` to the absolute addon target path before running the build commands so assets deploy to the correct directory.
 
-```bash
-npm run build:dist
+## Development notes
+
+### Python backend server
+The Python helper server spins up a threaded `http.server` instance with CORS and cache-busting headers, serving generated files from a specified directory and port for quick previews launched from Blender.
+
+### Vite/Three.js frontend architecture
+The Vite app boots through main.js, which warns when loaded over the file protocol, runs setupViewer(), and decorates the UI with the current Three.js revision badge. Viewer state is centralized in state.js, exposing setters/getters for DOM caches, scene graph handles, animation mixers, and reference camera poses. Scene orchestration in scene.js initializes the renderer, camera, controls, lighting, responsive resizing, Draco-backed GLTF loading, animation preparation, and render loop. User interactions are wired through controls.js which hooks the UI controls to rendering actions defined in actions.js; animation ticking lives in tickAnimations(). UI state updates (loading overlay, stats, sliders, shading labels) are managed by ui.js.
+
+### System flow
+```mermaid
+flowchart TD
+    BlenderAddon[Blender addon blendXweb2] --> AssetPipeline[Vite build pipeline]
+    AssetPipeline --> BrowserViewer[Three.js web viewer]
+    BrowserViewer --> PythonServer[Python local server for previews]
+    BlenderAddon --> PythonServer
 ```
-
-This sets an environment override so Vite outputs to the local `dist/` folder instead.
-
-## Using the Addon
-
-### Accessing the Addon
-
-Once installed, you can access the addon from the 3D View sidebar:
-
-1. Open the sidebar by pressing `N` in the 3D View
-2. Select the "Web Preview/blendXweb2" tab
-
-### Previewing in Browser
-
-1. Set up your scene in Blender
-2. Click the "Preview in Browser" button in the addon panel
-3. A local server will start and your default web browser will open showing your scene
-4. Use the controls in the browser to navigate and interact with the scene
-
-### Exporting for Web
-
-1. Set up your scene in Blender
-2. Click the "Export Scene to Web" button in the addon panel
-3. Choose a destination folder and filename
-4. Click "Export"
-5. A ZIP file will be created containing all necessary files for web viewing
-
-## Web Viewer Controls
-
-The web viewer provides several controls to interact with your scene:
-
-### Camera Controls
-- Left Mouse: Rotate the view
-- Middle Mouse / Scroll: Zoom in/out
-- Right Mouse: Pan the view
-- Top/Front/Side buttons: Jump to standard views
-- Reset Camera: Return to the initial view
-
-### Display Options
-- Wireframe: Toggle wireframe mode
-- Grid: Toggle the reference grid
-- Lights: Toggle scene lights (excluding ambient light)
-
-### Animation Controls
-- Play: Start the animation
-- Pause: Pause the animation
-- Stop: Stop and reset the animation
-- Slider: Scrub through the animation timeline
-
-## Troubleshooting
-
-### Server Issues
-- If the preview doesn't open, check if port 3000 is available or in use
-- Try stopping and restarting the server from the addon panel
-
-### Export Issues
-- Make sure your Blender scene has been saved
-- Check if you have write permissions for the export directory
-- Ensure all textures are properly packed or referenced
-
-### Web Viewer Issues
-- Make sure your browser supports WebGL
-- Check the browser console for any error messages
-- Try using a different browser if issues persist
 
 ## License
 

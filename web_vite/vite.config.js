@@ -2,13 +2,13 @@ import { defineConfig } from 'vite';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { realpathSync } from 'node:fs';
-import { resolveAddonOutDir } from './scripts/addon-path.mjs';
+import { resolveAddonPaths } from './scripts/addon-path.mjs';
 
 const filePath = fileURLToPath(import.meta.url);
 const dirPath = dirname(filePath);
 const projectRoot = realpathSync(dirPath);
 
-const { path: buildOutDir, isAddonPath } = resolveAddonOutDir(projectRoot);
+const { addonRoot, webPath, isAddonPath } = resolveAddonPaths(projectRoot);
 
 export default defineConfig({
   root: projectRoot,
@@ -20,7 +20,7 @@ export default defineConfig({
     preserveSymlinks: true,
   },
   build: {
-    outDir: buildOutDir,
+    outDir: webPath,
     emptyOutDir: !isAddonPath,
     rollupOptions: {
       input: {
